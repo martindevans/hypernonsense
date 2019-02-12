@@ -5,6 +5,7 @@ authors = ["Martin Evans <martindevans@gmail.com>"]
 edition = "2018"
 repository = "https://github.com/martindevans/hypernonsense"
 description = "Locality Sensitive Hashing"
+license = "MIT"
 
 [dependencies]
 rand = "0.6.5"
