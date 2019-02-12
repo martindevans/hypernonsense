@@ -3,6 +3,7 @@ name = "hypernonsense"
 version = "0.1.0"
 authors = ["Martin Evans <martindevans@gmail.com>"]
 edition = "2018"
+repository = "https://github.com/martindevans/hypernonsense"
 
 [dependencies]
 rand = "0.6.5"
