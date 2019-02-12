@@ -1,0 +1,10 @@
+[package]
+name = "hypernonsense"
+version = "0.1.0"
+authors = ["Martin Evans <martindevans@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+rand = "0.6.5"
+bit-vec = "0.5.0"
+time = "0.1"
