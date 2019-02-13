@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::hash::Hash;
 use std::fmt::Debug;
 
+use rayon::prelude::*;
 use rand::{Rng};
 use bit_vec::{BitVec};
 
@@ -12,11 +13,11 @@ pub struct DistanceNode<K> {
     pub distance: f32
 }
 
-pub struct MultiIndex<K> {
+pub struct MultiIndex<K:Send> {
     indices: Vec<HyperIndex<K>>
 }
 
-impl<K:Clone+Eq+Hash+Debug> MultiIndex<K> {
+impl<K:Clone+Eq+Hash+Debug+Send> MultiIndex<K> {
     pub fn new<R : Rng + Sized>(dimension: usize, index_count: u8, hyperplane_count: u8, mut rng: &mut R) -> MultiIndex<K>
     {
         return MultiIndex {
@@ -82,9 +83,16 @@ impl<K:Clone+Eq+Hash+Debug> MultiIndex<K> {
     }
 
     pub fn add(&mut self, key: K, vector: &Vec<f32>) {
-        for index in self.indices.iter_mut() {
-            index.add(key.clone(), vector);
-        }
+
+        // Build a list of work that needs doing (tuple of index, key and vector)
+        let mut work:Vec<_> = self.indices.iter_mut()
+            .map(|idx| (idx, &key, vector))
+            .collect();
+
+        //Add items in parallel
+        work.iter_mut().for_each(|work| {
+            work.0.add(work.1.clone(), work.2);
+        });
     }
 }
 

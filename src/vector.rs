@@ -4,11 +4,11 @@ use rand::distributions::StandardNormal;
 pub fn dot(a: &Vec<f32>, b: &Vec<f32>) -> f32 {
     assert_eq!(a.len(), b.len());
 
-    let mut acc = 0f64;
+    let mut acc = 0f32;
     for index in 0..a.len() {
-        acc += a[index] as f64 * b[index] as f64;
+        acc += a[index] * b[index];
     }
-    return acc as f32;
+    return acc;
 }
 
 //distance metric based on cosine distance which is offset from [-1,1] range into the [0,2] range

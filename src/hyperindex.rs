@@ -6,13 +6,13 @@ use bit_vec::{BitVec};
 
 use crate::vector::{ dot, random_unit_vector };
 
-pub struct HyperIndex<K> {
+pub struct HyperIndex<K:Send> {
     planes: Vec<Vec<f32>>,
     groups: HashMap<BitVec, Vec<K>>,
     dims: usize
 }
 
-impl<K> HyperIndex<K> {
+impl<K:Send> HyperIndex<K> {
     pub fn new<R : Rng + Sized>(dimension: usize, hyperplane_count: u8, mut rng: &mut R) -> HyperIndex<K>
     {
         let mut planes = Vec::<Vec<f32>>::with_capacity(hyperplane_count as usize);
