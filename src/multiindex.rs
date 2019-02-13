@@ -8,8 +8,8 @@ use bit_vec::{BitVec};
 use crate::hyperindex::{ HyperIndex };
 
 pub struct DistanceNode<K> {
-    key: K,
-    distance: f32
+    pub key: K,
+    pub distance: f32
 }
 
 pub struct MultiIndex<K> {
