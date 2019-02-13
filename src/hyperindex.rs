@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use rayon::prelude::*;
 use rand::{Rng};
 use bit_vec::{BitVec};
 
@@ -39,11 +40,19 @@ impl<K> HyperIndex<K> {
     }
 
     pub fn key(&self, vector: &Vec<f32>) -> BitVec {
-        return BitVec::from_fn(self.planes.len(), |index| {
-            let p = &self.planes[index];
-            let d = dot(p, vector);
+
+        let mut key = BitVec::with_capacity(self.planes.len());
+
+        let bits:Vec<bool> = self.planes.par_iter().map(|plane| {
+            let d = dot(plane, vector);
             return d > 0f32;
-        });
+        }).collect();
+
+        for bit in bits.iter() {
+            key.push(*bit);
+        }
+        
+        return key;
     }
 
     pub fn add(&mut self, key: K, vector: &Vec<f32>) {
