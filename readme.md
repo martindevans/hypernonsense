@@ -1,5 +1,7 @@
 ## Hypernonsense
 
+[![](https://meritbadge.herokuapp.com/hypernonsense)](https://crates.io/crates/hypernonsense)
+
 An implementation of [Locality Sensitive hashing](https://en.wikipedia.org/wiki/Locality-sensitive_hashing) with [random projection](https://en.wikipedia.org/wiki/Random_projection).
 
 Locality sensitive hashing allows you to query a very large set of points in extremely high dimensional space to find the nearest points to a query point.
