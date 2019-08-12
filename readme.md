@@ -62,14 +62,14 @@ let mut index = MultiIndex::new(dimension, 10, 10, &mut thread_rng());
 // ...exactly the same as the hyperindex example
 
 // Find the approximately nearest vectors to a random query vector. The key we used was `i32` so we get back a `Vec<DistanceNode<i32>>`
-// This require use to supply the number of points we want and a distance metric to choose them by
+// This requires us to supply the number of points we want and a distance metric to choose them by
 const nearest_count : usize = 100;
 let result : Vec<DistanceNode<i32>> = index.nearest(&random_unit_vector(dimension, &mut rng), nearest_count, |point, key| {
     return distance(point, get_vector_by_key(key));
 });
 ```
 
-The `multiindex` contains within in a number of `hyperindex` (specified as `10` in this example). When queried it fetches the nearest group from all sub-indices and then merges them together, keeping the closest points (limited to `100` in this example) according to the distance metric (`distance` function in this example).
+The `multiindex` contains within it a number of `hyperindex` (specified as `10` in this example). When queried it fetches the nearest group from all sub-indices and merges them together, keeping the closest points (limited to `100` in this example) according to the distance metric (`distance` function in this example).
 
 ## Tweaking Parameter
 
