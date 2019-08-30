@@ -3,8 +3,14 @@ name = "hypernonsense"
 version = "0.4.0"
 authors = ["Martin Evans <martindevans@gmail.com>"]
 edition = "2018"
+
+# description of the crate
+# see https://doc.rust-lang.org/cargo/reference/manifest.html#package-metadata
+description = "Using Locality Sensitive hashing to find the nearest points to a query point in extremely high dimensional space."
 repository = "https://github.com/martindevans/hypernonsense"
-description = "Locality Sensitive Hashing"
+readme = "readme.md"
+keywords = ["random projection", "nearest neighbor"]
+categories = ["algorithms", "science"] # crates.io/category_slugs
 license = "MIT"
 
 [dependencies]
