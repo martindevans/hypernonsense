@@ -2,7 +2,6 @@ use std::collections::HashSet;
 use std::hash::Hash;
 use std::fmt::Debug;
 
-use rayon::prelude::*;
 use rand::{Rng};
 use bit_vec::{BitVec};
 
@@ -18,8 +17,7 @@ pub struct MultiIndex<K:Send> {
 }
 
 impl<K:Clone+Eq+Hash+Debug+Send> MultiIndex<K> {
-    pub fn new<R : Rng + Sized>(dimension: usize, index_count: u8, hyperplane_count: u8, mut rng: &mut R) -> MultiIndex<K>
-    {
+    pub fn new<R : Rng + Sized>(dimension: usize, index_count: u8, hyperplane_count: u8, mut rng: &mut R) -> MultiIndex<K> {
         return MultiIndex {
             indices: (0..index_count).map(|_| HyperIndex::new(dimension, hyperplane_count, &mut rng)).collect()
         }
@@ -94,6 +92,18 @@ impl<K:Clone+Eq+Hash+Debug+Send> MultiIndex<K> {
             work.0.add(work.1.clone(), work.2);
         });
     }
+
+    pub fn dimensions(&self) -> usize {
+        return self.indices[0].dimensions();
+    }
+
+    pub fn planes_len(&self) -> usize {
+        return self.indices[0].planes_len();
+    }
+
+    pub fn indices_len(&self) -> usize {
+        return self.indices.len()
+    }
 }
 
 #[cfg(test)]
@@ -110,11 +120,12 @@ mod tests
 
     #[test]
     fn new_creates_index<'a>() {
-        let a = MultiIndex::<usize>::new(300, 10, 10, &mut thread_rng());
+        let a = MultiIndex::<usize>::new(300, 15, 10, &mut thread_rng());
 
-        //assert_eq!(300, a.dimensions());
-        //assert_eq!(0, a.groups_len());
-        //assert_eq!(10, a.planes_len());
+        assert_eq!(300, a.dimensions());
+        assert_eq!(0, a.groups_len());
+        assert_eq!(10, a.planes_len());
+        assert_eq!(15, a.indices_len());
     }
 
     #[test]

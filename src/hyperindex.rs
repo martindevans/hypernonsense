@@ -76,7 +76,6 @@ impl<K:Send> HyperIndex<K> {
 mod tests
 {
     use rand::prelude::*;
-    use std::collections::HashSet;
 
     use crate::hyperindex::{ HyperIndex };
     use crate::vector::{ random_unit_vector, modified_cosine_distance };
