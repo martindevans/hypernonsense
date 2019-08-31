@@ -10,7 +10,7 @@ description = "Using Locality Sensitive hashing to find the nearest points to a 
 repository = "https://github.com/martindevans/hypernonsense"
 readme = "readme.md"
 keywords = ["database", "hash", "search", "vector", "data-structures"]
-categories = ["algorithms", "science"] # crates.io/category_slugs
+categories = ["algorithms", "science", "data-structures"] # crates.io/category_slugs
 license = "MIT"
 
 [dependencies]
