@@ -14,7 +14,7 @@ Hypernonsense contains two types of index. The basic `hyperindex` is very fast t
 
 #### hyperindex
 
-```
+```rust
 // We're working in 300 dimensional space
 const dimension : usize = 300;
 
@@ -44,7 +44,7 @@ Result from the `hyperindex` will be very fast to retrieve - it's just testing t
 
 #### multiindex
 
-```
+```rust
 // We're working in 300 dimensional space
 const dimension : usize = 300;
 
