@@ -33,7 +33,7 @@ for key in 0..10000usize {
     let v = random_unit_vector(dimension, &mut rng);
     
     // The `key` can be any type - When you query the hyperindex you will get back a set of keys. In this case we'll just use the index.    
-    add.push((key, v));
+    index.add((key, v));
 }
 
 // Find approximately the nearest vectors to a random query vector. The key we used was `i32` so we get back a `Vec<i32>`
