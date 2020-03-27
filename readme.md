@@ -36,11 +36,11 @@ for key in 0..10000usize {
     index.add((key, v));
 }
 
-// Find approximately the nearest vectors to a random query vector. The key we used was `i32` so we get back a `Vec<i32>`
-let result : Option<&Vec<i32>> = index.group(random_unit_vector(dimension, &mut rng));
+// Find approximately the nearest vectors to a random query vector. The key we used was `usize` so we get back a `Vec<usize>`
+let result : Option<&Vec<usize>> = index.group(random_unit_vector(dimension, &mut rng));
 ```
 
-Result from the `hyperindex` will be very fast to retrieve - it's just testing the query point against the `10` (in this example) hyperplanes and retrieving a pre-populated list. However the quality of results will be very poor, points are prearranged into groups and any points which lie near to a hyperplane will not retrieve all of the closest points.
+Results from the `hyperindex` will be very fast to retrieve (it's `O(planes)`). However the quality of results will be very poor, points are prearranged into groups and any points which happen to lie near to one of the hyperplanes will not retrieve all of the closest points. When querying from a `hyperindex` it will return a reference to the internals of the index, which is a `Vec` of (approximately) the nearest keys in an arbitrary order.
 
 #### multiindex
 
@@ -61,7 +61,7 @@ let mut index = MultiIndex::new(dimension, 10, 10, &mut thread_rng());
 // Populate index
 // ...exactly the same as the hyperindex example
 
-// Find the approximately nearest vectors to a random query vector. The key we used was `i32` so we get back a `Vec<DistanceNode<i32>>`
+// Find the approximately nearest vectors to a random query vector. The key we used was `usize` so we get back a `Vec<DistanceNode<usize>>`
 // This requires us to supply the number of points we want and a distance metric to choose them by
 const nearest_count : usize = 100;
 let result : Vec<DistanceNode<i32>> = index.nearest(&random_unit_vector(dimension, &mut rng), nearest_count, |point, key| {
@@ -69,9 +69,9 @@ let result : Vec<DistanceNode<i32>> = index.nearest(&random_unit_vector(dimensio
 });
 ```
 
-The `multiindex` contains within it a number of `hyperindex` (specified as `10` in this example). When queried it fetches the nearest group from all sub-indices and merges them together, keeping the closest points (limited to `100` in this example) according to the distance metric (`distance` function in this example).
+The `multiindex` solves the poor quality of results from a single `hyperindex` by querying multiple `hyperindex` instances simultaneously and aggregating their results together. This allows you to directly trade off speed to accuracy by increasing the `indices` count. When querying from a `multiindex` you can specify the number of items to retrieve (`100` in this example) and the distance metric to order them by.
 
-## Tweaking Parameter
+## Tweaking Parameters
 
 When using this you must be aware that it is a probabilistic data structure - results that it returns are approximately correct. You should experiment with the two parameters until you achieve a level of speed and accuracy that you are happy with.
 
@@ -81,10 +81,10 @@ The `hyperindex` is split into regions of space between the random hyperplanes i
 
 If you don't have very many hyperplanes you will get back very large result sets and the index isn't really helping you. The limit of this is zero hyperplanes, in which case every query will return the entire set!
 
-If you have too many hyperplanes each group will have a very small number of points in it and the quality of results will suffer as it becomes increasingly likely that the correct answer will have been classified into a different group. Once `2 ^ planes >= data_points` it is likely that every point will be in a different group and the index is almost useless.
+If you have too many hyperplanes each group will have a very small number of points in it and the quality of results will suffer as it becomes increasingly likely that the correct answer will have been classified into a different group. Once `2 ^ planes >= data_points` it is likely that every point will be in a group on it's own and the index is almost useless.
 
 #### Sub Index Count
 
-The `multiindex` contains multiple `hyperindex` each split with the same number of planes, but with different (randomised) plane orientations. When you query the `multiindex` it queries all the sub-indices and merges the results together. This approach increases the accuracy of the query by taking the best results (according to the distance metric) from each sub query. Increasing the sub index count increases memory consumption and query time.
+The `multiindex` contains multiple `hyperindex` instances each split with the same number of planes, but with different (randomised) plane orientations. When you query the `multiindex` it queries all the sub-indices and merges the results together. This approach increases the accuracy of the query by taking the best results (according to the distance metric) from each sub query. Increasing the sub index count increases memory consumption and query time.
 
 If you don't have very many sub-indices you will basically just be querying a `hyperindex` and the distance metric will be useless.
