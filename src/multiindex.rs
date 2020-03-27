@@ -123,7 +123,6 @@ mod tests
         let a = MultiIndex::<usize>::new(300, 15, 10, &mut thread_rng());
 
         assert_eq!(300, a.dimensions());
-        assert_eq!(0, a.groups_len());
         assert_eq!(10, a.planes_len());
         assert_eq!(15, a.indices_len());
     }
