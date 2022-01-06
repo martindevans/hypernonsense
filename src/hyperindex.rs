@@ -104,7 +104,7 @@ mod tests
         let mut vectors = Vec::new();
 
         let mut rng = thread_rng();
-        for key in 0..10000usize {
+        for key in 0..1000usize {
             let v = random_unit_vector(300, &mut rng);
             a.add(key, &v);
             vectors.push((key, v));

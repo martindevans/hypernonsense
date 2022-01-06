@@ -2,14 +2,29 @@ use std::collections::HashSet;
 use std::hash::Hash;
 use std::fmt::Debug;
 
-use rand::{Rng};
-use bit_vec::{BitVec};
+use rand::Rng;
 
-use crate::hyperindex::{ HyperIndex };
+use crate::hyperindex::HyperIndex;
 
-pub struct DistanceNode<K> {
+pub struct DistanceNode<K: Eq+Hash> {
     pub key: K,
     pub distance: f32
+}
+
+impl<K:Eq+Hash> Eq for DistanceNode<K>
+{
+}
+
+impl<K:Eq+Hash> PartialEq for DistanceNode<K> {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+
+impl<K:Eq+Hash> Hash for DistanceNode<K> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+    }
 }
 
 pub struct MultiIndex<K:Send> {
@@ -18,64 +33,26 @@ pub struct MultiIndex<K:Send> {
 
 impl<K:Clone+Eq+Hash+Debug+Send> MultiIndex<K> {
     pub fn new<R : Rng + Sized>(dimension: usize, index_count: u8, hyperplane_count: u8, mut rng: &mut R) -> MultiIndex<K> {
-        return MultiIndex {
+        MultiIndex {
             indices: (0..index_count).map(|_| HyperIndex::new(dimension, hyperplane_count, &mut rng)).collect()
         }
     }
 
-    fn merge(mut a: Vec<DistanceNode<K>>, mut b: Vec<DistanceNode<K>>, limit: usize) -> Vec<DistanceNode<K>> {
+    pub fn nearest<F:Fn(&Vec<f32>, &K) -> f32>(&self, point: &Vec<f32>, count: usize, get_dist: F) -> Vec<DistanceNode<K>>
+    {
+        // Collect one group of results from every hyperindex
+        // Dedupe by collecting into an intermediate hashset
+        let mut results: Vec<_> = self.indices.iter()
+            .flat_map(|i| i.group(&i.key(&point)))
+            .flat_map(|a| a)
+            .map(|a| DistanceNode { distance: get_dist(point, a), key: a.clone() })
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
 
-        //Add all items from B into A
-        a.append(&mut b);
-
-        //Sort merged lists by distance
-        a.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap_or(std::cmp::Ordering::Equal));
-
-        //Trim to size
-        a.truncate(limit);
-
-        return a;
-    }
-
-    fn merge_key_results<F:Fn(&Vec<f32>, &K) -> f32>(point: &Vec<f32>, index: &HyperIndex<K>, key: &BitVec, get_dist: &F, found: &mut HashSet<K>, results: Vec<DistanceNode<K>>, count: usize) -> Vec<DistanceNode<K>> {
-        if let Some(g) = index.group(&key) {
-
-            let candidates:Vec<DistanceNode<K>> = g.iter().filter_map(|key| {
-
-                //skip items which we've already found.
-                //They're either already in the result list, or were already rejected as too far away.
-                if !found.insert(key.clone()) {
-                    return None;
-                }
-
-                return Some(DistanceNode {
-                    key: key.clone(),
-                    distance: get_dist(&point, &key)
-                });
-            }).collect();
-
-            return MultiIndex::<K>::merge(results, candidates, count);
-        }
-
-        return results;
-    }
-
-    pub fn nearest<F:Fn(&Vec<f32>, &K) -> f32>(&self, point: &Vec<f32>, count: usize, get_dist: F) -> Vec<DistanceNode<K>> {
-        let mut results = Vec::with_capacity(count);
-        let mut found = HashSet::new();
-
-        for index in self.indices.iter() {
-            let k = index.key(&point);
-            results = MultiIndex::<K>::merge_key_results(&point, &index, &k, &get_dist, &mut found, results, count);
-
-            //Fetch all adjacent keys (all keys different by just one bit)
-            for i in 0..k.len() {
-                let mut k2 = k.clone();
-                k2.set(i, !k2.get(i).unwrap());
-
-                results = MultiIndex::<K>::merge_key_results(&point, &index, &k2, &get_dist, &mut found, results, count);
-            }
-        }
+        // Sort into distance order and truncate to length
+        results.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap_or(std::cmp::Ordering::Equal));
+        results.truncate(count);
 
         return results;
     }
@@ -94,15 +71,15 @@ impl<K:Clone+Eq+Hash+Debug+Send> MultiIndex<K> {
     }
 
     pub fn dimensions(&self) -> usize {
-        return self.indices[0].dimensions();
+        self.indices[0].dimensions()
     }
 
     pub fn planes_len(&self) -> usize {
-        return self.indices[0].planes_len();
+        self.indices[0].planes_len()
     }
 
     pub fn indices_len(&self) -> usize {
-        return self.indices.len()
+        self.indices.len()
     }
 }
 
@@ -113,13 +90,13 @@ mod tests
     use std::collections::HashSet;
 
     extern crate time;
-    use time::PreciseTime;
+    use time::Instant;
 
-    use crate::multiindex::{ MultiIndex };
-    use crate::vector::{ random_unit_vector, modified_cosine_distance };
+    use crate::multiindex::MultiIndex;
+    use crate::vector::{ random_unit_vector, modified_cosine_distance, euclidean_distance };
 
     #[test]
-    fn new_creates_index<'a>() {
+    fn new_creates_index() {
         let a = MultiIndex::<usize>::new(300, 15, 10, &mut thread_rng());
 
         assert_eq!(300, a.dimensions());
@@ -128,8 +105,8 @@ mod tests
     }
 
     #[test]
-    fn multiindex_compare<'a>() {
-        let mut a = MultiIndex::new(300, 10, 10, &mut thread_rng());
+    fn multiindex_compare() {
+        let mut a = MultiIndex::new(300, 30, 5, &mut thread_rng());
 
         let mut vectors = Vec::new();
 
@@ -140,33 +117,33 @@ mod tests
             vectors.push((key, v));
         }
 
-        let start_linear = PreciseTime::now();
+        let start_linear = Instant::now();
 
         //Get closest points from simple search through the entire set
         println!();
         println!("Linear results:");
         let query_point = vectors[0].clone();
-        let mut nearest_linear: Vec<(f32, &(usize, Vec<f32>))> = vectors.iter().map(|item| (modified_cosine_distance(&item.1, &query_point.1), item)).collect();
+        let mut nearest_linear: Vec<(f32, &(usize, Vec<f32>))> = vectors.iter().map(|item| (euclidean_distance(&item.1, &query_point.1), item)).collect();
         nearest_linear.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
-        let end_linear = PreciseTime::now();
-        println!("{} seconds for linear", start_linear.to(end_linear));
+        let end_linear = Instant::now();
+        println!("{:?} seconds for linear", end_linear - start_linear);
 
         for i in 0..20 {
             println!("idx:{:?}\t\tdist:{:?}", (nearest_linear[i].1).0, nearest_linear[i].0);
         }
 
-        let start_indexed = PreciseTime::now();
+        let start_indexed = Instant::now();
 
         //Use the index
         println!();
         println!("Index results:");
         let near = a.nearest(&query_point.1, 100, |p, k| {
-            return modified_cosine_distance(p, &vectors[*k].1);
+            euclidean_distance(p, &vectors[*k].1)
         });
 
-        let end_indexed = PreciseTime::now();
-        println!("{} seconds for index", start_indexed.to(end_indexed));
+        let end_indexed = Instant::now();
+        println!("{:?} seconds for index", end_indexed - start_indexed);
         
         for i in 0.. near.len().min(20) {
             println!("idx:{:?}\t\tdist:{:?}", near[i].key, near[i].distance);
