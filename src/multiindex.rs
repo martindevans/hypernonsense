@@ -3,6 +3,7 @@ use std::hash::Hash;
 use std::fmt::Debug;
 
 use rand::Rng;
+use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 
 use crate::hyperindex::HyperIndex;
 
@@ -57,15 +58,15 @@ impl<K:Clone+Eq+Hash+Debug+Send> MultiIndex<K> {
         return results;
     }
 
-    pub fn add(&mut self, key: K, vector: &Vec<f32>) {
-
+    pub fn add(&mut self, key: K, vector: &Vec<f32>)
+    {
         // Build a list of work that needs doing (tuple of index, key and vector)
         let mut work:Vec<_> = self.indices.iter_mut()
-            .map(|idx| (idx, &key, vector))
+            .map(|idx| (idx, key.clone(), vector))
             .collect();
 
         //Add items in parallel
-        work.iter_mut().for_each(|work| {
+        work.par_iter_mut().for_each(|work| {
             work.0.add(work.1.clone(), work.2);
         });
     }
@@ -93,7 +94,7 @@ mod tests
     use time::Instant;
 
     use crate::multiindex::MultiIndex;
-    use crate::vector::{ random_unit_vector, modified_cosine_distance, euclidean_distance };
+    use crate::vector::{ random_unit_vector, euclidean_distance };
 
     #[test]
     fn new_creates_index() {
