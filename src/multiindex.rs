@@ -3,7 +3,7 @@ use std::hash::Hash;
 use std::fmt::Debug;
 
 use rand::Rng;
-use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
+use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator, IntoParallelRefIterator, IntoParallelIterator};
 
 use crate::hyperindex::HyperIndex;
 
@@ -28,27 +28,29 @@ impl<K:Eq+Hash> Hash for DistanceNode<K> {
     }
 }
 
-pub struct MultiIndex<K:Send> {
+pub struct MultiIndex<K:Send+Sync> {
     indices: Vec<HyperIndex<K>>
 }
 
-impl<K:Clone+Eq+Hash+Debug+Send> MultiIndex<K> {
+impl<K:Clone+Eq+Hash+Debug+Send+Sync> MultiIndex<K> {
     pub fn new<R : Rng + Sized>(dimension: usize, index_count: u8, hyperplane_count: u8, mut rng: &mut R) -> MultiIndex<K> {
         MultiIndex {
             indices: (0..index_count).map(|_| HyperIndex::new(dimension, hyperplane_count, &mut rng)).collect()
         }
     }
 
-    pub fn nearest<F:Fn(&Vec<f32>, &K) -> f32>(&self, point: &Vec<f32>, count: usize, get_dist: F) -> Vec<DistanceNode<K>>
+    pub fn nearest<F>(&self, point: &Vec<f32>, count: usize, get_dist: F) -> Vec<DistanceNode<K>>
+        where F : Fn(&Vec<f32>, &K) -> f32 + Send + Sync
     {
         // Collect one group of results from every hyperindex
         // Dedupe by collecting into an intermediate hashset
-        let mut results: Vec<_> = self.indices.iter()
+        let mut results: Vec<_> = self.indices.par_iter()
             .flat_map(|i| i.group(&i.key(&point)))
             .flat_map(|a| a)
-            .map(|a| DistanceNode { distance: get_dist(point, a), key: a.clone() })
-            .collect::<HashSet<_>>()
-            .into_iter()
+            .map(|a| a.clone())
+            .collect::<HashSet<K>>()
+            .into_par_iter()
+            .map(|a| DistanceNode { distance: get_dist(point, &a), key: a })
             .collect::<Vec<_>>();
 
         // Sort into distance order and truncate to length
