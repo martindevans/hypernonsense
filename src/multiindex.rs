@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::hash::Hash;
 use std::fmt::Debug;
 
+use bit_vec::BitVec;
 use rand::Rng;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator, IntoParallelRefIterator, IntoParallelIterator};
 
@@ -10,6 +11,20 @@ use crate::hyperindex::HyperIndex;
 pub struct DistanceNode<K: Eq+Hash> {
     pub key: K,
     pub distance: f32
+}
+
+impl<K:Eq+Hash> PartialOrd for DistanceNode<K>
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.distance.partial_cmp(&other.distance)
+    }
+}
+
+impl<K:Eq+Hash> Ord for DistanceNode<K>
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap_or(std::cmp::Ordering::Equal)
+    }
 }
 
 impl<K:Eq+Hash> Eq for DistanceNode<K>
@@ -39,25 +54,43 @@ impl<K:Clone+Eq+Hash+Debug+Send+Sync> MultiIndex<K> {
         }
     }
 
+    fn vary_key<'a>(index: &'a HyperIndex<K>, key: &BitVec) -> Vec<(&'a HyperIndex<K>, BitVec)>
+    {
+        let mut result = vec![(index, key.clone())];
+        for i in 0..key.len()
+        {
+            let mut k = key.clone();
+            k.set(i, !k[i]);
+            result.push((index, k));
+        }
+        return result;
+    }
+
     pub fn nearest<F>(&self, point: &Vec<f32>, count: usize, get_dist: F) -> Vec<DistanceNode<K>>
         where F : Fn(&Vec<f32>, &K) -> f32 + Send + Sync
     {
-        // Collect one group of results from every hyperindex
+        // Get a key from each hyperindex
+        // Vary that to all adjacent keys
+        // Query indices
         // Dedupe by collecting into an intermediate hashset
-        let mut results: Vec<_> = self.indices.par_iter()
-            .flat_map(|i| i.group(&i.key(&point)))
-            .flat_map(|a| a)
+        // Get distance from each item to original query point
+        let mut result = self.indices.par_iter()
+            .flat_map(|i| Self::vary_key(i, &i.key(&point)))
+            .flat_map(|i| i.0.group(&i.1))
+            .flat_map(|r| r)
             .map(|a| a.clone())
             .collect::<HashSet<K>>()
             .into_par_iter()
             .map(|a| DistanceNode { distance: get_dist(point, &a), key: a })
             .collect::<Vec<_>>();
 
-        // Sort into distance order and truncate to length
-        results.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap_or(std::cmp::Ordering::Equal));
-        results.truncate(count);
+        // Sort (small->large)
+        // Truncate to the first `count` items
+        result.sort_unstable();
+        result.truncate(count);
+        result.shrink_to_fit();
 
-        return results;
+        return result;
     }
 
     pub fn add(&mut self, key: K, vector: &Vec<f32>)
@@ -109,7 +142,7 @@ mod tests
 
     #[test]
     fn multiindex_compare() {
-        let mut a = MultiIndex::new(300, 30, 5, &mut thread_rng());
+        let mut a = MultiIndex::new(300, 15, 5, &mut thread_rng());
 
         let mut vectors = Vec::new();
 
@@ -156,6 +189,8 @@ mod tests
         let near_set: HashSet<_> = near.iter().map(|a| a.key).take(20).collect();
         let overlap: Vec<_> = linear_set.intersection(&near_set).collect();
         println!();
-        println!("Overlap:{:?}/20", overlap.len())
+        println!("Overlap:{:?}/20", overlap.len());
+
+        assert!(overlap.len() > 17);
     }
 }
