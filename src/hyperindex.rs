@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
-use rayon::prelude::*;
-use rand::{Rng};
-use bit_vec::{BitVec};
+use rand::Rng;
+use bit_vec::BitVec;
 
 use crate::vector::{ dot, random_unit_vector };
 
@@ -43,7 +42,7 @@ impl<K:Send> HyperIndex<K> {
 
         let mut key = BitVec::with_capacity(self.planes.len());
 
-        let bits:Vec<bool> = self.planes.par_iter().map(|plane| {
+        let bits:Vec<bool> = self.planes.iter().map(|plane| {
             let d = dot(plane, vector);
             return d > 0f32;
         }).collect();
