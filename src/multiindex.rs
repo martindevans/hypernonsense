@@ -155,6 +155,27 @@ mod tests
     }
 
     #[test]
+    fn multiindex_nearest_points()
+    {
+        let mut a = MultiIndex::new(1500, 10, 15, &mut thread_rng());
+
+        let mut vectors = Vec::new();
+
+        let mut rng = thread_rng();
+        for key in 0..25000usize {
+            let v = random_unit_vector(1500, &mut rng);
+            a.add(key, &v);
+            vectors.push((key, v));
+        }
+
+        let query_point = vectors[0].clone();
+        let near = a.nearest_points(&query_point.1);
+
+        assert!(near.len() < 250);
+        assert!(near.len() > 50);
+    }
+
+    #[test]
     fn multiindex_compare() {
         let mut a = MultiIndex::new(300, 15, 5, &mut thread_rng());
 
