@@ -74,12 +74,7 @@ impl<K:Clone+Eq+Hash+Debug+Send+Sync> MultiIndex<K> {
         // Query indices
         // Dedupe by collecting into an intermediate hashset
         // Get distance from each item to original query point
-        let mut result = self.indices.par_iter()
-            .flat_map(|i| Self::vary_key(i, &i.key(&point)))
-            .flat_map(|i| i.0.group(&i.1))
-            .flat_map(|r| r)
-            .map(|a| a.clone())
-            .collect::<HashSet<K>>()
+        let mut result = self.nearest_points(point)
             .into_par_iter()
             .map(|a| DistanceNode { distance: get_dist(point, &a), key: a })
             .collect::<Vec<_>>();
@@ -89,6 +84,25 @@ impl<K:Clone+Eq+Hash+Debug+Send+Sync> MultiIndex<K> {
         result.sort_unstable();
         result.truncate(count);
         result.shrink_to_fit();
+
+        return result;
+    }
+
+    pub fn nearest_points(&self, point: &Vec<f32>) -> Vec<K>
+    {
+        // Get a key from each hyperindex
+        // Vary that to all adjacent keys
+        // Query indices
+        // Dedupe by collecting into an intermediate hashset
+        // Get distance from each item to original query point
+        let result = self.indices.par_iter()
+            .flat_map(|i| Self::vary_key(i, &i.key(&point)))
+            .flat_map(|i| i.0.group(&i.1))
+            .flat_map(|r| r)
+            .map(|a| a.clone())
+            .collect::<HashSet<K>>()
+            .into_par_iter()
+            .collect::<Vec<_>>();
 
         return result;
     }
