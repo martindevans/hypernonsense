@@ -54,6 +54,44 @@ impl<K:Clone+Eq+Hash+Debug+Send+Sync> MultiIndex<K> {
         }
     }
 
+    /// Given a set of vectors, discover the best index count and plane count to use to achieve a particular group size
+    pub fn autotune_planes<R : Rng + Sized>(dimension: usize, group_size: f32, vectors: &Vec<Vec<f32>>, mut rng: &mut R) -> u8
+    {
+        // Guess the best plane count to start with. This may be an underestimate if the points are very grouped up.
+        // Bias down by slightly, just to be safe.
+        let mut initial = (vectors.len().checked_ilog2().unwrap_or(1) - (group_size.log2().floor() as u32)).clamp(2, 255) as u8;
+        initial -=  2;
+
+        // First, discover a number of planes which will average to 10 items
+        let mut best_plane_count = 0u8;
+        let mut best_group_avg = f32::MAX;
+        for planes in initial..255
+        {
+            // Build index with current plane count
+            let mut idx = HyperIndex::new(dimension, planes, &mut rng);
+            for (k, v) in vectors.iter().enumerate() {
+                idx.add(k, v);
+            }
+
+            // Get the stats from these indices
+            let (_, avg, _) = idx.stats();
+            println!("{} => {}", planes, avg);
+
+            // Keep track of the best we've found so far. Smallest that's not under the target group size
+            if avg < best_group_avg && avg > group_size {
+                best_group_avg = avg;
+                best_plane_count = planes;
+            }
+
+            // Once we've got enough planes it's below the target size retur whatever the best value is
+            if avg < group_size {
+                return best_plane_count;
+            }
+        }
+
+        return best_plane_count;
+    }
+
     fn vary_key<'a>(index: &'a HyperIndex<K>, key: &BitVec) -> Vec<(&'a HyperIndex<K>, BitVec)>
     {
         let mut result = vec![(index, key.clone())];
@@ -152,6 +190,23 @@ mod tests
         assert_eq!(300, a.dimensions());
         assert_eq!(10, a.planes_len());
         assert_eq!(15, a.indices_len());
+    }
+
+    #[test]
+    fn autotune()
+    {
+        let mut vectors = Vec::new();
+
+        println!("Generating...");
+        let mut rng = thread_rng();
+        for _ in 0..5000usize {
+            let v = random_unit_vector(100, &mut rng).into_iter().map(|v| v + 0.5f32).collect();
+            vectors.push(v);
+        }
+        println!("Done");
+
+        let plane_count = MultiIndex::<usize>::autotune_planes(100, 10f32, &vectors, &mut thread_rng());
+        println!("{}", plane_count);
     }
 
     #[test]

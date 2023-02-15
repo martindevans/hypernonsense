@@ -26,6 +26,14 @@ impl<K:Send> HyperIndex<K> {
         }
     }
 
+    pub fn stats(&self) -> (usize, f32, usize)
+    {
+        let min = self.groups.iter().min_by_key(|a| a.1.len()).map(|a| a.1.len()).unwrap_or(0);
+        let average = self.groups.iter().map(|a| a.1.len() as f32).sum::<f32>() / (self.groups.len() as f32);
+        let max = self.groups.iter().max_by_key(|a| a.1.len()).map(|a| a.1.len()).unwrap_or(0);
+        return (min, average, max);
+    }
+
     pub fn dimensions(&self) -> usize {
         return self.dims;
     }
