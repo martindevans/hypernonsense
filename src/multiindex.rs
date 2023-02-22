@@ -112,7 +112,7 @@ impl<K:Clone+Eq+Hash+Debug+Send+Sync> MultiIndex<K> {
         // Query indices
         // Dedupe by collecting into an intermediate hashset
         // Get distance from each item to original query point
-        let mut result = self.nearest_points(point)
+        let mut result = self.nearest_points_set(point)
             .into_par_iter()
             .map(|a| DistanceNode { distance: get_dist(point, &a), key: a })
             .collect::<Vec<_>>();
@@ -133,29 +133,31 @@ impl<K:Clone+Eq+Hash+Debug+Send+Sync> MultiIndex<K> {
         // Query indices
         // Dedupe by collecting into an intermediate hashset
         // Get distance from each item to original query point
-        let result = self.indices.par_iter()
-            .flat_map(|i| Self::vary_key(i, &i.key(&point)))
-            .flat_map(|i| i.0.group(&i.1))
-            .flat_map(|r| r)
-            .map(|a| a.clone())
-            .collect::<HashSet<K>>()
-            .into_par_iter()
+        let result = self.nearest_points_set(point)
+            .into_iter()
             .collect::<Vec<_>>();
 
         return result;
     }
 
+    pub fn nearest_points_set(&self, point: &Vec<f32>) -> HashSet<K>
+    {
+        // Get a key from each hyperindex
+        // Vary that to all adjacent keys
+        // Query indices
+        // Dedupe by collecting into a hashset
+        return self.indices.par_iter()
+            .flat_map(|i| Self::vary_key(i, &i.key(&point)))
+            .flat_map(|i| i.0.group(&i.1))
+            .flat_map(|r| r)
+            .map(|a| a.clone())
+            .collect::<HashSet<K>>();
+    }
+
     pub fn add(&mut self, key: K, vector: &Vec<f32>)
     {
-        // Build a list of work that needs doing (tuple of index, key and vector)
-        let mut work:Vec<_> = self.indices.iter_mut()
-            .map(|idx| (idx, key.clone(), vector))
-            .collect();
-
-        //Add items in parallel
-        work.par_iter_mut().for_each(|work| {
-            work.0.add(work.1.clone(), work.2);
-        });
+        self.indices.par_iter_mut()
+            .for_each(|idx| idx.add(key.clone(), vector));
     }
 
     pub fn dimensions(&self) -> usize {

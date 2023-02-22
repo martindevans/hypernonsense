@@ -20,7 +20,7 @@ impl<K:Send> HyperIndex<K> {
         }
 
         return HyperIndex {
-            planes: planes,
+            planes,
             groups: HashMap::new(),
             dims: dimension
         }
@@ -46,28 +46,25 @@ impl<K:Send> HyperIndex<K> {
         return self.planes.len();
     }
 
-    pub fn key(&self, vector: &Vec<f32>) -> BitVec {
-
+    pub fn key(&self, vector: &Vec<f32>) -> BitVec
+    {
         let mut key = BitVec::with_capacity(self.planes.len());
 
-        let bits:Vec<bool> = self.planes.iter().map(|plane| {
-            let d = dot(plane, vector);
-            return d > 0f32;
-        }).collect();
-
-        for bit in bits.iter() {
-            key.push(*bit);
+        for plane in self.planes.iter() {
+            let d = dot(&plane, vector);
+            let b = d > 0f32;
+            key.push(b);
         }
-        
+
         return key;
     }
 
     pub fn add(&mut self, key: K, vector: &Vec<f32>) {
 
-        //Build bit vector, each bit indicates which side of the hyperplane the point is on
+        // Build bit vector, each bit indicates which side of the hyperplane the point is on
         let bits = self.key(&vector);
 
-        //Insert this item into the appropriate group
+        // Insert this item into the appropriate group
         self.groups
             .entry(bits)
             .or_insert(Vec::new())
@@ -84,7 +81,7 @@ mod tests
 {
     use rand::prelude::*;
 
-    use crate::hyperindex::{ HyperIndex };
+    use crate::hyperindex::HyperIndex;
     use crate::vector::{ random_unit_vector, modified_cosine_distance };
 
     #[test]

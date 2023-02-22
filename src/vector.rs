@@ -4,12 +4,10 @@ use rand_distr::StandardNormal;
 pub fn dot(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len());
 
-    let mut acc = 0f32;
-    for index in 0..a.len() {
-        acc += a[index] * b[index];
-    }
-
-    return acc;
+    return a.iter()
+        .zip(b.iter())
+        .map(|(a, b)| a * b)
+        .sum::<f32>();
 }
 
 //distance metric based on cosine distance which is offset from [-1,1] range into the [0,2] range
